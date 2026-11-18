@@ -1,0 +1,8 @@
+*.gem
+.bundle/
+vendor/bundle/
+auth_info*/
+node_modules/
+.env
+coverage/
+tmp/

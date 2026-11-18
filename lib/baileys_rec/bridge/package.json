@@ -1,0 +1,11 @@
+{
+  "name": "baileys-rec-ruby-bridge",
+  "version": "1.6.0",
+  "private": true,
+  "type": "module",
+  "description": "JSON-RPC NDJSON Bridge worker for the baileys_rec Ruby gem",
+  "dependencies": {
+    "baileys-rec": "^1.6.0",
+    "pino": "^9.6.0"
+  }
+}

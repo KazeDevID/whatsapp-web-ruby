@@ -1,0 +1,76 @@
+# frozen_string_literal: true
+
+require_relative "test_helper"
+
+class AutomationTest < Minitest::Test
+  def test_router_dispatches_commands_patterns_and_buttons
+    sock = BaileysRec.make_wa_socket(mode: :memory).connect
+    router = BaileysRec::Automation::Router.new(prefix: "!")
+    log = []
+
+    router.use do |ctx, next_fn|
+      log << "mw:#{ctx.sender}"
+      next_fn.call
+    end
+
+    router.on_command("ping") { |ctx| ctx.reply("pong") }
+    router.on_button("buy_*") { |ctx| ctx.reply("buying:#{ctx.button_id}") }
+    router.attach(sock)
+
+    sock.ev.emit(:messages_upsert, {
+      "messages" => [
+        { "key" => { "remoteJid" => "628111@s.whatsapp.net", "id" => "1", "fromMe" => false }, "message" => { "conversation" => "!ping" } },
+        { "key" => { "remoteJid" => "628111@s.whatsapp.net", "id" => "2", "fromMe" => false }, "message" => { "buttonsResponseMessage" => { "selectedButtonId" => "buy_vip", "selectedDisplayText" => "VIP" } } }
+      ]
+    })
+
+    assert_equal 2, sock.adapter.sent_messages.size
+    assert_equal({ text: "pong" }, sock.adapter.sent_messages[0][:content])
+    assert_equal({ text: "buying:buy_vip" }, sock.adapter.sent_messages[1][:content])
+    assert_equal 2, log.size
+  end
+
+  def test_dispatcher_idempotency_and_retries
+    attempts = 0
+    flaky_adapter = Class.new(BaileysRec::Transport::MemoryAdapter) do
+      define_method(:send_message) do |jid, content, options = {}|
+        attempts += 1
+        raise BaileysRec::TimeoutError, "temporary timeout" if attempts == 1
+
+        super(jid, content, options)
+      end
+    end.new
+
+    sock = BaileysRec.make_wa_socket(mode: :memory, adapter: flaky_adapter, max_retries: 0).connect
+    dispatcher = BaileysRec::Automation::Dispatcher.new(
+      socket: sock,
+      per_jid_interval: 0.01,
+      max_attempts: 3,
+      base_backoff: 0.01
+    ).start
+
+    j1 = dispatcher.enqueue(jid: "628999", content: { text: "Hello" }, idempotency_key: "key-1")
+    j2 = dispatcher.enqueue(jid: "628999", content: { text: "Hello" }, idempotency_key: "key-1")
+
+    assert_equal j1.id, j2.id
+    assert dispatcher.wait_until_empty(timeout: 5)
+    dispatcher.stop
+
+    assert_equal :sent, j1.status
+    assert_equal 2, j1.attempts
+    assert_equal 1, dispatcher.stats[:sent]
+    assert_equal 1, dispatcher.stats[:deduplicated]
+  end
+
+  def test_multi_file_auth_state_persistence
+    dir = File.join("/tmp", "baileys_rec_auth_test_#{Process.pid}")
+    state = BaileysRec.use_multi_file_auth_state(dir)
+    state.save_creds({ "me" => { "id" => "628123@s.whatsapp.net" } })
+    state.set_keys("session" => { "1" => { "key" => "abc" } })
+
+    reloaded = BaileysRec.use_multi_file_auth_state(dir)
+    assert_equal "628123@s.whatsapp.net", reloaded.creds.dig("me", "id")
+    assert_equal({ "1" => { "key" => "abc" } }, reloaded.get_keys("session", ["1"]))
+    reloaded.clear!
+  end
+end
