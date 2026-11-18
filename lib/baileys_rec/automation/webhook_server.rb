@@ -3,13 +3,39 @@
 require "json"
 require "net/http"
 require "openssl"
+require "socket"
 require "uri"
-require "webrick"
 
 module BaileysRec
   module Automation
-    # Built-in Pure-Ruby REST API & Webhook Server for stable WhatsApp message automation.
+    # Lightweight HTTP Response wrapper compatible with WebhookServer route handlers.
+    class HttpResponse
+      attr_accessor :status, :body
+      attr_reader :headers
+
+      def initialize
+        @status = 200
+        @headers = { "Content-Type" => "application/json" }
+        @body = ""
+      end
+
+      def []=(key, val)
+        @headers[key] = val
+      end
+    end
+
+    # Built-in Pure-Ruby TCPServer HTTP REST API & Webhook Server (zero external gems, Ruby 3.0-4.0+ compatible).
     class WebhookServer
+      STATUS_TEXT = {
+        200 => "OK",
+        202 => "Accepted",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        404 => "Not Found",
+        405 => "Method Not Allowed",
+        500 => "Internal Server Error"
+      }.freeze
+
       def initialize(socket:, dispatcher: nil, host: "0.0.0.0", port: 4567,
                      api_key: nil, webhook_url: nil, webhook_secret: nil)
         @socket = socket
@@ -20,31 +46,33 @@ module BaileysRec
         @webhook_url = webhook_url
         @webhook_secret = webhook_secret
         @server = nil
+        @running = false
+        @accept_thread = nil
       end
 
       def start(blocking: true)
-        @server = WEBrick::HTTPServer.new(
-          BindAddress: @host,
-          Port: @port,
-          Logger: WEBrick::Log.new($stderr, WEBrick::Log::WARN),
-          AccessLog: []
-        )
-
-        mount_routes
+        @server = TCPServer.new(@host, @port)
+        @running = true
         attach_incoming_webhooks if @webhook_url
 
         if blocking
           trap("INT") { stop }
           trap("TERM") { stop }
-          @server.start
+          accept_loop
         else
-          Thread.new { @server.start }
+          @accept_thread = Thread.new { accept_loop }
         end
         self
       end
 
       def stop
-        @server&.shutdown
+        @running = false
+        begin
+          @server&.close unless @server&.closed?
+        rescue StandardError
+          nil
+        end
+        @accept_thread&.join(2)
         @dispatcher.stop(drain: false)
       end
 
@@ -80,8 +108,53 @@ module BaileysRec
 
       private
 
-      def mount_routes
-        @server.mount_proc "/v1/health" do |_req, res|
+      def accept_loop
+        while @running
+          client = @server.accept
+          Thread.new(client) { |conn| handle_connection(conn) }
+        end
+      rescue IOError, Errno::EBADF
+        nil
+      end
+
+      def handle_connection(conn)
+        request_line = conn.gets
+        return unless request_line
+
+        method, full_path, = request_line.strip.split(" ", 3)
+        path = full_path.to_s.split("?", 2).first
+
+        headers = {}
+        while (line = conn.gets)
+          line = line.chomp
+          break if line.empty?
+
+          k, v = line.split(":", 2)
+          headers[k.strip.downcase] = v.strip if k && v
+        end
+
+        content_length = headers["content-length"].to_i
+        raw_body = content_length.positive? ? conn.read(content_length).to_s : ""
+
+        res = HttpResponse.new
+        route_request(method, path, headers, raw_body, res)
+
+        status_text = STATUS_TEXT.fetch(res.status, "OK")
+        payload = res.body.to_s
+        conn.write("HTTP/1.1 #{res.status} #{status_text}\r\n")
+        conn.write("Content-Type: #{res.headers['Content-Type']}\r\n")
+        conn.write("Content-Length: #{payload.bytesize}\r\n")
+        conn.write("Connection: close\r\n\r\n")
+        conn.write(payload)
+      rescue StandardError => e
+        warn "[BaileysRec::WebhookServer] connection error: #{e.message}"
+      ensure
+        conn&.close unless conn&.closed?
+      end
+
+      def route_request(method, path, headers, raw_body, res)
+        case path
+        when "/v1/health"
           json_response(res, 200, {
             ok: true,
             version: BaileysRec::VERSION,
@@ -89,18 +162,14 @@ module BaileysRec
             mode: @socket.mode,
             queue: @dispatcher.stats
           })
-        end
-
-        @server.mount_proc "/v1/messages/send" do |req, res|
-          handle_authenticated(req, res) do |body|
+        when "/v1/messages/send"
+          handle_authenticated(method, headers, raw_body, res) do |body|
             jid = body.fetch("to") { raise ValidationError, "'to' is required" }
             content = body["message"] || { text: body.fetch("text") { raise ValidationError, "'text' or 'message' is required" } }
             enqueue_or_send(res, jid, content, body)
           end
-        end
-
-        @server.mount_proc "/v1/messages/interactive" do |req, res|
-          handle_authenticated(req, res) do |body|
+        when "/v1/messages/interactive"
+          handle_authenticated(method, headers, raw_body, res) do |body|
             jid = body.fetch("to") { raise ValidationError, "'to' is required" }
             btn = Builders::Button.new(@socket)
             btn.set_title(body["title"]) if body["title"]
@@ -122,22 +191,20 @@ module BaileysRec
 
             enqueue_or_send(res, jid, btn.build, body)
           end
-        end
-
-        @server.mount_proc "/v1/messages/cloud-api" do |req, res|
-          handle_authenticated(req, res) do |body|
+        when "/v1/messages/cloud-api"
+          handle_authenticated(method, headers, raw_body, res) do |body|
             jid = body.fetch("to") { raise ValidationError, "'to' is required" }
             converted = @socket.mode == :cloud_api ? body : Utils::CloudApi.from_cloud_api_message(body)
             enqueue_or_send(res, jid, converted, body)
           end
-        end
-
-        @server.mount_proc "/v1/session/pairing-code" do |req, res|
-          handle_authenticated(req, res) do |body|
+        when "/v1/session/pairing-code"
+          handle_authenticated(method, headers, raw_body, res) do |body|
             phone = body.fetch("phone_number") { raise ValidationError, "'phone_number' is required" }
             result = @socket.request_pairing_code(phone, body["custom_code"])
             json_response(res, 200, { ok: true, data: result })
           end
+        else
+          json_response(res, 404, { ok: false, error: "Not found" })
         end
       end
 
@@ -165,20 +232,20 @@ module BaileysRec
         end
       end
 
-      def handle_authenticated(req, res)
-        if req.request_method != "POST"
+      def handle_authenticated(method, headers, raw_body, res)
+        if method != "POST"
           return json_response(res, 405, { ok: false, error: "Method not allowed" })
         end
 
         if @api_key && !@api_key.empty?
-          auth_header = req["Authorization"].to_s
+          auth_header = headers["authorization"].to_s
           expected = "Bearer #{@api_key}"
           unless auth_header == expected
             return json_response(res, 401, { ok: false, error: "Unauthorized" })
           end
         end
 
-        body = JSON.parse(req.body.to_s.empty? ? "{}" : req.body)
+        body = JSON.parse(raw_body.empty? ? "{}" : raw_body)
         yield(body)
       rescue ValidationError => e
         json_response(res, 400, { ok: false, error: e.message })

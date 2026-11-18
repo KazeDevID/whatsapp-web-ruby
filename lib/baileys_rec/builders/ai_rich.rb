@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "base64"
 require "json"
 require "securerandom"
 
@@ -273,7 +272,7 @@ module BaileysRec
               richResponseMessage: {
                 messageType: 1,
                 submessages: @submessages,
-                unifiedResponse: { data: Base64.strict_encode64(unified_json) },
+                unifiedResponse: { data: [unified_json].pack("m0") },
                 contextInfo: @_context_info || {}
               }
             }
