@@ -56,9 +56,11 @@ module BaileysRec
         attach_incoming_webhooks if @webhook_url
 
         if blocking
-          trap("INT") { stop }
-          trap("TERM") { stop }
-          accept_loop
+          trap("INT") { @running = false }
+          trap("TERM") { @running = false }
+          @accept_thread = Thread.new { accept_loop }
+          sleep 0.2 while @running
+          stop
         else
           @accept_thread = Thread.new { accept_loop }
         end
