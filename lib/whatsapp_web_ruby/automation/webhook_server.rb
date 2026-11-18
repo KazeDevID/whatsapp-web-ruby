@@ -6,7 +6,7 @@ require "openssl"
 require "socket"
 require "uri"
 
-module BaileysRec
+module WhatsappWebRuby
   module Automation
     # Lightweight HTTP Response wrapper compatible with WebhookServer route handlers.
     class HttpResponse
@@ -98,13 +98,13 @@ module BaileysRec
         req["Content-Type"] = "application/json"
         if @webhook_secret && !@webhook_secret.empty?
           sig = OpenSSL::HMAC.hexdigest("SHA256", @webhook_secret, body)
-          req["X-BaileysRec-Signature"] = "sha256=#{sig}"
+          req["X-WhatsappWebRuby-Signature"] = "sha256=#{sig}"
         end
         req.body = body
         http.request(req)
         true
       rescue StandardError => e
-        warn "[BaileysRec::WebhookServer] webhook dispatch error: #{e.message}"
+        warn "[WhatsappWebRuby::WebhookServer] webhook dispatch error: #{e.message}"
         false
       end
 
@@ -149,7 +149,7 @@ module BaileysRec
         conn.write("Connection: close\r\n\r\n")
         conn.write(payload)
       rescue StandardError => e
-        warn "[BaileysRec::WebhookServer] connection error: #{e.message}"
+        warn "[WhatsappWebRuby::WebhookServer] connection error: #{e.message}"
       ensure
         conn&.close unless conn&.closed?
       end
@@ -159,7 +159,7 @@ module BaileysRec
         when "/v1/health"
           json_response(res, 200, {
             ok: true,
-            version: BaileysRec::VERSION,
+            version: WhatsappWebRuby::VERSION,
             connected: @socket.connected?,
             mode: @socket.mode,
             queue: @dispatcher.stats

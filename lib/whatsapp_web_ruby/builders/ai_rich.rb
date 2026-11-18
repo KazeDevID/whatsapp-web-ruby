@@ -3,7 +3,7 @@
 require "json"
 require "securerandom"
 
-module BaileysRec
+module WhatsappWebRuby
   module Builders
     # AI Rich Response Builder (`AIRich` / `Rich`) mirroring `baileys-rec`'s rich message engine.
     class AIRich < BaseBuilder
@@ -179,7 +179,9 @@ module BaileysRec
         raise TypeError, "Text must be a String" unless text.is_a?(String)
 
         extracted = self.class.extract_ie(text, hyperlink: hyperlink, citation: citation, latex: latex)
-        @submessages << { messageType: 2, messageText: extracted[:text] }
+        submsg = { messageType: 2, messageText: extracted[:text] }
+        submsg[:inlineEntities] = extracted[:inline_entities] unless extracted[:inline_entities].empty?
+        @submessages << submsg
         primitive = { text: extracted[:text], __typename: "GenAIMarkdownTextUXPrimitive" }
         primitive[:inline_entities] = extracted[:inline_entities] unless extracted[:inline_entities].empty?
         @sections << { view_model: { primitive: primitive, __typename: "GenAISingleLayoutViewModel" } }

@@ -4,7 +4,7 @@ require_relative "test_helper"
 
 class BuildersTest < Minitest::Test
   def test_button_builder_chains_all_native_flow_types
-    btn = BaileysRec::Button.new
+    btn = WhatsappWebRuby::Button.new
                             .set_title("Interactive Hub")
                             .set_subtitle("Select an action")
                             .set_body("Welcome to Ruby WhatsApp automation")
@@ -36,10 +36,10 @@ class BuildersTest < Minitest::Test
   end
 
   def test_carousel_builder_creates_swipeable_cards
-    c1 = BaileysRec::Button.new.set_title("Item 1").set_body("Desc 1").set_image("https://example.com/1.jpg").add_reply("Buy 1", "buy_1")
-    c2 = BaileysRec::Button.new.set_title("Item 2").set_body("Desc 2").add_url("View", "https://example.com/2")
+    c1 = WhatsappWebRuby::Button.new.set_title("Item 1").set_body("Desc 1").set_image("https://example.com/1.jpg").add_reply("Buy 1", "buy_1")
+    c2 = WhatsappWebRuby::Button.new.set_title("Item 2").set_body("Desc 2").add_url("View", "https://example.com/2")
 
-    carousel = BaileysRec::Carousel.new
+    carousel = WhatsappWebRuby::Carousel.new
                                      .set_title("Catalog")
                                      .set_body("Featured items")
                                      .add_card([c1, c2])
@@ -52,7 +52,7 @@ class BuildersTest < Minitest::Test
   end
 
   def test_flow_builder_v3_schema_and_button
-    flow = BaileysRec::FlowBuilder.new("survey_v3", "Customer Feedback")
+    flow = WhatsappWebRuby::FlowBuilder.new("survey_v3", "Customer Feedback")
                                   .add_screen("SURVEY_SCREEN", "Feedback")
                                   .add_text_input("name", "Your Name", required: true)
                                   .add_dropdown("rating", "Rating", %w[5 4 3])

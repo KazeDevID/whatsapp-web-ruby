@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module BaileysRec
+module WhatsappWebRuby
   module Automation
     # Context object passed into automation route handlers.
     class Context

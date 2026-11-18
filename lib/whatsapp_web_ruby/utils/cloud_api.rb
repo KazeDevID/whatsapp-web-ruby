@@ -3,7 +3,7 @@
 require "json"
 require "securerandom"
 
-module BaileysRec
+module WhatsappWebRuby
   module Utils
     module CloudApi
       module_function

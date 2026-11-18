@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module BaileysRec
+module WhatsappWebRuby
   module Utils
     # Thread-safe EventEmitter mirroring Baileys' `sock.ev` interface.
     class EventEmitter
@@ -70,7 +70,7 @@ module BaileysRec
         callbacks.each do |cb|
           cb.call(payload)
         rescue StandardError => e
-          warn "[BaileysRec::EventEmitter] listener error on #{key}: #{e.class} - #{e.message}"
+          warn "[WhatsappWebRuby::EventEmitter] listener error on #{key}: #{e.class} - #{e.message}"
         end
         !callbacks.empty?
       end

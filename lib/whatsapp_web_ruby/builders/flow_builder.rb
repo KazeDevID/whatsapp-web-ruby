@@ -2,9 +2,9 @@
 
 require "json"
 
-module BaileysRec
+module WhatsappWebRuby
   module Builders
-    # WhatsApp Flows v3.1 Schema & Screen Builder mirroring `BaileysRec::FlowBuilder`.
+    # WhatsApp Flows v3.1 Schema & Screen Builder mirroring `WhatsappWebRuby::FlowBuilder`.
     class FlowBuilder
       attr_reader :flow_id, :title, :version, :screens
 

@@ -3,9 +3,9 @@
 require "json"
 require "securerandom"
 
-module BaileysRec
+module WhatsappWebRuby
   module Builders
-    # Fluent NativeFlow Interactive Button Builder mirroring `BaileysRec::Button`.
+    # Fluent NativeFlow Interactive Button Builder mirroring `WhatsappWebRuby::Button`.
     class Button < BaseBuilder
       attr_reader :buttons, :media_type, :media_data
 

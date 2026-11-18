@@ -4,7 +4,7 @@ require "json"
 require "open3"
 require "securerandom"
 
-module BaileysRec
+module WhatsappWebRuby
   module Transport
     # Resilient JSON-RPC NDJSON Bridge to the `baileys-rec` Multi-Device engine.
     # Manages process lifecycle, correlated RPC calls, timeouts, and event streaming.
@@ -19,7 +19,7 @@ module BaileysRec
         @timeout = timeout
         @auto_restart = auto_restart
         @print_qr_in_terminal = print_qr_in_terminal
-        @browser = browser || ["BaileysRecRuby", "Chrome", "1.6.0"]
+        @browser = browser || ["WhatsappWebRubyRuby", "Chrome", "1.6.0"]
 
         @mutex = Mutex.new
         @write_mutex = Mutex.new
@@ -185,7 +185,7 @@ module BaileysRec
           begin
             @emitter&.emit(sym, data)
           rescue StandardError => e
-            warn "[BaileysRec::Bridge] Event dispatch error (#{sym}): #{e.class} - #{e.message}"
+            warn "[WhatsappWebRuby::Bridge] Event dispatch error (#{sym}): #{e.class} - #{e.message}"
           end
         end
       end
@@ -196,7 +196,7 @@ module BaileysRec
         baileys_dir = File.join(bridge_dir, "node_modules", "baileys-rec")
         return unless File.exist?(pkg_json) && !File.directory?(baileys_dir)
 
-        warn "[BaileysRec::Bridge] Installing Node.js bridge dependencies in #{bridge_dir}..."
+        warn "[WhatsappWebRuby::Bridge] Installing Node.js bridge dependencies in #{bridge_dir}..."
         ok = system("npm", "install", "--omit=dev", "--no-bin-links", "--no-audit", "--no-fund", chdir: bridge_dir)
         return if ok
 

@@ -3,7 +3,7 @@
 require "json"
 require "fileutils"
 
-module BaileysRec
+module WhatsappWebRuby
   module Auth
     # Multi-file auth state store mirroring Baileys `useMultiFileAuthState`.
     class MultiFileAuthState

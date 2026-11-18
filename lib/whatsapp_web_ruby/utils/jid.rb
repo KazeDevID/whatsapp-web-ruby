@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module BaileysRec
+module WhatsappWebRuby
   module Utils
     module Jid
       S_WHATSAPP_NET = "s.whatsapp.net"

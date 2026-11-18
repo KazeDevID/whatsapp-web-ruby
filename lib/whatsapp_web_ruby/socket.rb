@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module BaileysRec
+module WhatsappWebRuby
   # Core WhatsApp Multi-Device / Cloud API Socket mirroring `makeWASocket`.
   class Socket
     attr_reader :ev, :adapter, :mode, :config

@@ -6,9 +6,9 @@ require_relative "test_helper"
 
 class WebhookServerTest < Minitest::Test
   def test_webhook_server_endpoints_and_auth
-    sock = BaileysRec.make_wa_socket(mode: :memory).connect
+    sock = WhatsappWebRuby.make_wa_socket(mode: :memory).connect
     port = 14_567 + rand(1000)
-    server = BaileysRec::Automation::WebhookServer.new(
+    server = WhatsappWebRuby::Automation::WebhookServer.new(
       socket: sock,
       host: "127.0.0.1",
       port: port,

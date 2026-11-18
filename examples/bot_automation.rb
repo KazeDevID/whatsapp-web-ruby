@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require_relative "../lib/baileys_rec"
+require_relative "../lib/whatsapp-web-ruby"
 
-sock = BaileysRec.make_wa_socket(mode: :memory).connect
+sock = WhatsappWebRuby.make_wa_socket(mode: :memory).connect
 
-dispatcher = BaileysRec::Automation::Dispatcher.new(
+dispatcher = WhatsappWebRuby::Automation::Dispatcher.new(
   socket: sock,
   per_jid_interval: 0.2,
   max_attempts: 3
 ).start
 
-router = BaileysRec::Automation::Router.new(prefix: "!")
+router = WhatsappWebRuby::Automation::Router.new(prefix: "!")
 
 router.use do |ctx, next_fn|
   puts "[LOG] Incoming from #{ctx.sender}: #{ctx.body}"
@@ -18,17 +18,17 @@ router.use do |ctx, next_fn|
 end
 
 router.on_command("promo") do |ctx|
-  card1 = BaileysRec::Button.new(sock)
+  card1 = WhatsappWebRuby::Button.new(sock)
                             .set_title("Pro Plan")
                             .set_body("Unlimited automated messages")
                             .add_reply("Select Pro", "plan_pro")
 
-  card2 = BaileysRec::Button.new(sock)
+  card2 = WhatsappWebRuby::Button.new(sock)
                             .set_title("Enterprise")
                             .set_body("Dedicated multi-device cluster")
                             .add_url("Contact Sales", "https://example.com")
 
-  BaileysRec::Carousel.new(sock)
+  WhatsappWebRuby::Carousel.new(sock)
                       .set_title("Available Plans")
                       .set_body("Swipe to compare packages")
                       .add_card([card1, card2])

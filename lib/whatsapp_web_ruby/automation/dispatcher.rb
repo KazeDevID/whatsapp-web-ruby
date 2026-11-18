@@ -2,7 +2,7 @@
 
 require "securerandom"
 
-module BaileysRec
+module WhatsappWebRuby
   module Automation
     # Thread-safe Message Automation Queue & Rate-Limited Dispatcher.
     # Provides anti-ban per-recipient spacing, idempotency deduplication,

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module BaileysRec
+module WhatsappWebRuby
   class Error < StandardError; end
 
   class ConfigurationError < Error; end

@@ -2,7 +2,7 @@
 
 require "securerandom"
 
-module BaileysRec
+module WhatsappWebRuby
   module Transport
     # In-memory test and dry-run adapter for offline automation verification.
     class MemoryAdapter

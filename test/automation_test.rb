@@ -4,8 +4,8 @@ require_relative "test_helper"
 
 class AutomationTest < Minitest::Test
   def test_router_dispatches_commands_patterns_and_buttons
-    sock = BaileysRec.make_wa_socket(mode: :memory).connect
-    router = BaileysRec::Automation::Router.new(prefix: "!")
+    sock = WhatsappWebRuby.make_wa_socket(mode: :memory).connect
+    router = WhatsappWebRuby::Automation::Router.new(prefix: "!")
     log = []
 
     router.use do |ctx, next_fn|
@@ -32,17 +32,17 @@ class AutomationTest < Minitest::Test
 
   def test_dispatcher_idempotency_and_retries
     attempts = 0
-    flaky_adapter = Class.new(BaileysRec::Transport::MemoryAdapter) do
+    flaky_adapter = Class.new(WhatsappWebRuby::Transport::MemoryAdapter) do
       define_method(:send_message) do |jid, content, options = {}|
         attempts += 1
-        raise BaileysRec::TimeoutError, "temporary timeout" if attempts == 1
+        raise WhatsappWebRuby::TimeoutError, "temporary timeout" if attempts == 1
 
         super(jid, content, options)
       end
     end.new
 
-    sock = BaileysRec.make_wa_socket(mode: :memory, adapter: flaky_adapter, max_retries: 0).connect
-    dispatcher = BaileysRec::Automation::Dispatcher.new(
+    sock = WhatsappWebRuby.make_wa_socket(mode: :memory, adapter: flaky_adapter, max_retries: 0).connect
+    dispatcher = WhatsappWebRuby::Automation::Dispatcher.new(
       socket: sock,
       per_jid_interval: 0.01,
       max_attempts: 3,
@@ -63,19 +63,19 @@ class AutomationTest < Minitest::Test
   end
 
   def test_multi_file_auth_state_persistence
-    dir = File.join("/tmp", "baileys_rec_auth_test_#{Process.pid}")
-    state = BaileysRec.use_multi_file_auth_state(dir)
+    dir = File.join("/tmp", "whatsapp_web_ruby_auth_test_#{Process.pid}")
+    state = WhatsappWebRuby.use_multi_file_auth_state(dir)
     state.save_creds({ "me" => { "id" => "628123@s.whatsapp.net" } })
     state.set_keys("session" => { "1" => { "key" => "abc" } })
 
-    reloaded = BaileysRec.use_multi_file_auth_state(dir)
+    reloaded = WhatsappWebRuby.use_multi_file_auth_state(dir)
     assert_equal "628123@s.whatsapp.net", reloaded.creds.dig("me", "id")
     assert_equal({ "1" => { "key" => "abc" } }, reloaded.get_keys("session", ["1"]))
     reloaded.clear!
   end
 
   def test_bridge_adapter_event_listener_can_call_rpc_without_deadlock
-    dir = File.join("/tmp", "baileys_rec_bridge_test_#{Process.pid}_#{rand(10_000)}")
+    dir = File.join("/tmp", "whatsapp_web_ruby_bridge_test_#{Process.pid}_#{rand(10_000)}")
     FileUtils.mkdir_p(dir)
     mock_worker = File.join(dir, "mock_worker.mjs")
     File.write(mock_worker, <<~JS)
@@ -99,12 +99,12 @@ class AutomationTest < Minitest::Test
       });
     JS
 
-    adapter = BaileysRec::Transport::BridgeAdapter.new(worker_path: mock_worker, timeout: 3, auto_restart: false)
-    sock = BaileysRec.make_wa_socket(mode: :bridge, adapter: adapter)
+    adapter = WhatsappWebRuby::Transport::BridgeAdapter.new(worker_path: mock_worker, timeout: 3, auto_restart: false)
+    sock = WhatsappWebRuby.make_wa_socket(mode: :bridge, adapter: adapter)
     replied = Queue.new
 
     sock.ev.on(:messages_upsert) do |upsert|
-      msg = BaileysRec.serialize_message(upsert["messages"].first)
+      msg = WhatsappWebRuby.serialize_message(upsert["messages"].first)
       res = sock.send_message(msg[:from], { text: "pong" })
       replied.push(res)
     end

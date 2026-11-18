@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-module BaileysRec
+module WhatsappWebRuby
   module Builders
-    # Swipeable Multi-Card Carousel Builder mirroring `BaileysRec::Carousel`.
+    # Swipeable Multi-Card Carousel Builder mirroring `WhatsappWebRuby::Carousel`.
     class Carousel < BaseBuilder
       attr_reader :cards
 

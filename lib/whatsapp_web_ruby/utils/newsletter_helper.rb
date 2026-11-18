@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module BaileysRec
+module WhatsappWebRuby
   module Utils
     # Helper for WhatsApp Newsletter / Channels (@newsletter) operations.
     class NewsletterHelper

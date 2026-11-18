@@ -1,22 +1,22 @@
 # frozen_string_literal: true
 
-require_relative "lib/baileys_rec/version"
+require_relative "lib/whatsapp_web_ruby/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "baileys_rec"
-  spec.version = BaileysRec::VERSION
+  spec.name = "whatsapp-web-ruby"
+  spec.version = WhatsappWebRuby::VERSION
   spec.authors = ["KazeDevID"]
   spec.email = ["mkzstyle31@gmail.com"]
 
-  spec.summary = "Ruby WhatsApp Bot & Automation SDK with Meta Cloud API parity, Interactive Builders, Flow v3, and Multi-Device Bridge."
+  spec.summary = "WhatsApp Bot & Automation Library for Ruby (Multi-Device, Interactive Buttons, Carousels, Flows v3.1, AI Rich & Meta Cloud API)."
   spec.description = <<~DESC
-    BaileysRec for Ruby brings the full interactive message suite of KazeDevID/baileys-rec
+    whatsapp-web-ruby brings the full WhatsApp Multi-Device and interactive message suite
     to Ruby: Button & Carousel builders, WhatsApp Flows v3.1, AI Rich messages,
     Newsletter/Channels helper, zero-token Meta Cloud API payload conversion,
     resilient multi-device bridge transport, and an enterprise message automation
     router, rate-limited dispatcher, and REST webhook server.
   DESC
-  spec.homepage = "https://github.com/KazeDevID/baileys-rec-rb"
+  spec.homepage = "https://github.com/KazeDevID/whatsapp-web-ruby"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0.0"
 
@@ -26,6 +26,6 @@ Gem::Specification.new do |spec|
 
   spec.files = Dir.glob("{bin,lib,examples}/**/*") + %w[LICENSE README.md Rakefile Gemfile]
   spec.bindir = "bin"
-  spec.executables = ["baileys-rec"]
+  spec.executables = ["whatsapp-web-ruby"]
   spec.require_paths = ["lib"]
 end

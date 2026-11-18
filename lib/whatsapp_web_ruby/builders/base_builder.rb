@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module BaileysRec
+module WhatsappWebRuby
   module Builders
     class BaseBuilder
       attr_reader :_title, :_subtitle, :_body, :_footer, :_context_info, :_extra_payload

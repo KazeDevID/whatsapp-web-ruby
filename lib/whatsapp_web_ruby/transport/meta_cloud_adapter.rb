@@ -4,7 +4,7 @@ require "json"
 require "net/http"
 require "uri"
 
-module BaileysRec
+module WhatsappWebRuby
   module Transport
     # Pure-Ruby Meta WhatsApp Business Cloud API v21.0 HTTP Adapter.
     class MetaCloudAdapter
