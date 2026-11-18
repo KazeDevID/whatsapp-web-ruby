@@ -24,6 +24,8 @@ module BaileysRec
         @mutex = Mutex.new
         @write_mutex = Mutex.new
         @pending = {}
+        @event_queue = Queue.new
+        @event_thread = nil
         @emitter = nil
         @stdin = nil
         @wait_thread = nil
@@ -51,6 +53,8 @@ module BaileysRec
         rescue StandardError
           nil
         end
+        @event_queue.push(nil)
+        @event_thread&.join(1)
         cleanup_streams
       end
 
@@ -154,6 +158,7 @@ module BaileysRec
         raise ConfigurationError, "Bridge worker script missing: #{@worker_path}" unless File.exist?(@worker_path)
 
         ensure_bridge_dependencies!
+        ensure_event_thread!
         stdin, stdout, stderr, wait_thr = Open3.popen3(@node_bin, @worker_path)
         @stdin = stdin
         @stdout = stdout
@@ -163,6 +168,26 @@ module BaileysRec
 
         @reader_thread = Thread.new { read_stdout_loop(stdout) }
         @stderr_thread = Thread.new { read_stderr_loop(stderr) }
+      end
+
+      def ensure_event_thread!
+        return if @event_thread&.alive?
+
+        @event_thread = Thread.new { dispatch_events_loop }
+      end
+
+      def dispatch_events_loop
+        loop do
+          item = @event_queue.pop
+          break if item.nil?
+
+          sym, data = item
+          begin
+            @emitter&.emit(sym, data)
+          rescue StandardError => e
+            warn "[BaileysRec::Bridge] Event dispatch error (#{sym}): #{e.class} - #{e.message}"
+          end
+        end
       end
 
       def ensure_bridge_dependencies!
@@ -198,14 +223,18 @@ module BaileysRec
             handle_worker_event(msg["event"], msg["data"])
           end
         end
+      rescue IOError, Errno::EBADF
+        nil
       ensure
         handle_worker_exit
       end
 
       def read_stderr_loop(stderr)
         while @running && (line = stderr.gets)
-          @emitter&.emit(:bridge_log, { level: "stderr", message: line.chomp })
+          @event_queue.push([:bridge_log, { level: "stderr", message: line.chomp }])
         end
+      rescue IOError, Errno::EBADF
+        nil
       end
 
       def handle_worker_event(event_name, data)
@@ -213,7 +242,7 @@ module BaileysRec
         if sym == :connection_update && data.is_a?(Hash)
           @connected = (data["connection"] == "open")
         end
-        @emitter&.emit(sym, data)
+        @event_queue.push([sym, data])
       end
 
       def handle_worker_exit
@@ -226,11 +255,11 @@ module BaileysRec
 
         return unless @auto_restart && @emitter
 
-        @emitter.emit(:connection_update, { "connection" => "close", "restarting" => true })
+        @event_queue.push([:connection_update, { "connection" => "close", "restarting" => true }])
         sleep 2
         spawn_worker!
       rescue StandardError => e
-        @emitter&.emit(:connection_update, { "connection" => "close", "error" => e.message })
+        @event_queue.push([:connection_update, { "connection" => "close", "error" => e.message }])
       end
 
       def cleanup_streams

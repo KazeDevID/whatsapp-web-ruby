@@ -73,4 +73,48 @@ class AutomationTest < Minitest::Test
     assert_equal({ "1" => { "key" => "abc" } }, reloaded.get_keys("session", ["1"]))
     reloaded.clear!
   end
+
+  def test_bridge_adapter_event_listener_can_call_rpc_without_deadlock
+    dir = File.join("/tmp", "baileys_rec_bridge_test_#{Process.pid}_#{rand(10_000)}")
+    FileUtils.mkdir_p(dir)
+    mock_worker = File.join(dir, "mock_worker.mjs")
+    File.write(mock_worker, <<~JS)
+      import readline from "node:readline";
+      const rl = readline.createInterface({ input: process.stdin });
+      rl.on("line", (line) => {
+        const req = JSON.parse(line);
+        if (req.method === "init") {
+          process.stdout.write(JSON.stringify({ id: req.id, result: { status: "ok" } }) + "\\n");
+          process.stdout.write(JSON.stringify({ event: "connection.update", data: { connection: "open" } }) + "\\n");
+          process.stdout.write(JSON.stringify({
+            event: "messages.upsert",
+            data: { type: "notify", messages: [{ key: { remoteJid: "628111@s.whatsapp.net", id: "IN_1", fromMe: false }, message: { conversation: "!ping" } }] }
+          }) + "\\n");
+        } else if (req.method === "sendMessage") {
+          process.stdout.write(JSON.stringify({ id: req.id, result: { key: { id: "OUT_1", remoteJid: req.params.jid, fromMe: true } } }) + "\\n");
+        } else if (req.method === "shutdown") {
+          process.stdout.write(JSON.stringify({ id: req.id, result: { shutdown: true } }) + "\\n");
+          process.exit(0);
+        }
+      });
+    JS
+
+    adapter = BaileysRec::Transport::BridgeAdapter.new(worker_path: mock_worker, timeout: 3, auto_restart: false)
+    sock = BaileysRec.make_wa_socket(mode: :bridge, adapter: adapter)
+    replied = Queue.new
+
+    sock.ev.on(:messages_upsert) do |upsert|
+      msg = BaileysRec.serialize_message(upsert["messages"].first)
+      res = sock.send_message(msg[:from], { text: "pong" })
+      replied.push(res)
+    end
+
+    sock.connect
+    result = replied.pop
+    assert_equal "OUT_1", result.dig("key", "id")
+    assert sock.sent_by_me?("OUT_1")
+  ensure
+    sock&.end_connection
+    FileUtils.rm_rf(dir)
+  end
 end

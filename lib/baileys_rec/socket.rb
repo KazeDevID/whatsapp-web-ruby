@@ -12,6 +12,14 @@ module BaileysRec
       @adapter = @config[:adapter] || build_adapter(@mode, @config)
       @max_retries = @config.fetch(:max_retries, 3).to_i
       @retry_base_delay = @config.fetch(:retry_base_delay, 0.5).to_f
+      @sent_ids_mutex = Mutex.new
+      @sent_ids = []
+    end
+
+    def sent_by_me?(msg_id)
+      return false if msg_id.nil? || msg_id.to_s.empty?
+
+      @sent_ids_mutex.synchronize { @sent_ids.include?(msg_id.to_s) }
     end
 
     def connect
@@ -27,28 +35,34 @@ module BaileysRec
       target_jid = Utils::Jid.to_jid(jid)
       payload = normalize_outgoing_content(content)
 
-      with_retry do
+      res = with_retry do
         @adapter.send_message(target_jid, payload, options)
       end
+      record_sent_id(res)
+      res
     end
 
     def send_interactive(jid, content, options = {})
       target_jid = Utils::Jid.to_jid(jid)
-      if @adapter.respond_to?(:send_interactive)
-        with_retry { @adapter.send_interactive(target_jid, content, options) }
-      else
-        send_message(target_jid, content, options)
-      end
+      res = if @adapter.respond_to?(:send_interactive)
+              with_retry { @adapter.send_interactive(target_jid, content, options) }
+            else
+              send_message(target_jid, content, options)
+            end
+      record_sent_id(res)
+      res
     end
 
     def send_cloud_api(jid, cloud_api_payload, options = {})
       target_jid = Utils::Jid.to_jid(jid)
-      if @mode == :cloud_api
-        with_retry { @adapter.send_message(target_jid, cloud_api_payload, options) }
-      else
-        converted = Utils::CloudApi.from_cloud_api_message(cloud_api_payload)
-        send_message(target_jid, converted, options)
-      end
+      res = if @mode == :cloud_api
+              with_retry { @adapter.send_message(target_jid, cloud_api_payload, options) }
+            else
+              converted = Utils::CloudApi.from_cloud_api_message(cloud_api_payload)
+              send_message(target_jid, converted, options)
+            end
+      record_sent_id(res)
+      res
     end
 
     def request_pairing_code(phone_number, custom_code = nil)
@@ -163,6 +177,18 @@ module BaileysRec
 
         delay = (e.respond_to?(:retry_after) && e.retry_after) ? e.retry_after : (@retry_base_delay * (2**(attempt - 1)))
         sleep(delay)
+      end
+    end
+
+    def record_sent_id(res)
+      return unless res.is_a?(Hash)
+
+      msg_id = res.dig("key", "id") || res.dig(:key, :id) || res["id"] || res[:id]
+      return if msg_id.nil? || msg_id.to_s.empty?
+
+      @sent_ids_mutex.synchronize do
+        @sent_ids << msg_id.to_s
+        @sent_ids.shift while @sent_ids.size > 300
       end
     end
   end

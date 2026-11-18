@@ -337,9 +337,11 @@ module BaileysRec
         m = deep_symbolize(msg)
         key = m[:key] || {}
         from = key[:remoteJid].to_s
+        from_alt = key[:remoteJidAlt].to_s
         is_group = Jid.group_jid?(from)
         is_newsletter = Jid.newsletter_jid?(from)
         sender = is_group ? (key[:participant] || from) : from
+        sender_alt = (is_group ? key[:participantAlt] : key[:remoteJidAlt]).to_s
 
         raw = m[:message] || {}
         normalized = raw.dig(:ephemeralMessage, :message) ||
@@ -364,7 +366,9 @@ module BaileysRec
         {
           id: key[:id].to_s,
           from: from,
+          from_alt: from_alt,
           sender: sender,
+          sender_alt: sender_alt,
           from_me: !key[:fromMe].nil? && key[:fromMe] != false,
           is_group: is_group,
           is_newsletter: is_newsletter,
