@@ -621,8 +621,8 @@ module BaileysRec
           return {
             kind: :native_flow,
             name: nf[:name],
-            id: params["id"] || params["flow_token"] || nf[:name],
-            text: resp.dig(:body, :text) || params["id"] || "",
+            id: params["id"] || params["selected_id"] || params["flow_token"] || nf[:name],
+            text: resp.dig(:body, :text) || params["display_text"] || params["id"] || "",
             params: params
           }
         end
