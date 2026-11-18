@@ -153,6 +153,7 @@ module BaileysRec
       def spawn_worker!
         raise ConfigurationError, "Bridge worker script missing: #{@worker_path}" unless File.exist?(@worker_path)
 
+        ensure_bridge_dependencies!
         stdin, stdout, stderr, wait_thr = Open3.popen3(@node_bin, @worker_path)
         @stdin = stdin
         @stdout = stdout
@@ -162,6 +163,20 @@ module BaileysRec
 
         @reader_thread = Thread.new { read_stdout_loop(stdout) }
         @stderr_thread = Thread.new { read_stderr_loop(stderr) }
+      end
+
+      def ensure_bridge_dependencies!
+        bridge_dir = File.dirname(@worker_path)
+        pkg_json = File.join(bridge_dir, "package.json")
+        baileys_dir = File.join(bridge_dir, "node_modules", "baileys-rec")
+        return unless File.exist?(pkg_json) && !File.directory?(baileys_dir)
+
+        warn "[BaileysRec::Bridge] Installing Node.js bridge dependencies in #{bridge_dir}..."
+        ok = system("npm", "install", "--omit=dev", "--no-bin-links", "--no-audit", "--no-fund", chdir: bridge_dir)
+        return if ok
+
+        raise ConfigurationError,
+              "Failed installing bridge dependencies in #{bridge_dir}. Run manually: cd #{bridge_dir} && npm install --omit=dev --no-bin-links"
       end
 
       def read_stdout_loop(stdout)
